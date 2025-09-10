@@ -15,7 +15,7 @@ spec:
         app: postfix
     spec:
       nodeSelector:
-        kubernetes.io/hostname: your-mail-node # pin to one OTC node
+        kubernetes.io/hostname: ecs-2fa2
       containers:
         - name: postfix
           image: boky/postfix:latest
