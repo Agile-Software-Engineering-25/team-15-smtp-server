@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opendkim-config
+data:
+  opendkim.conf: |
+    Syslog                  yes
+    UMask                   002
+    Domain                  example.com
+    KeyFile                 /etc/opendkim/keys/mail.private
+    Selector                mail
+    Socket                  inet:8891@localhost
+    Canonicalization        relaxed/simple
+    Mode                    sv
+    OversignHeaders         From

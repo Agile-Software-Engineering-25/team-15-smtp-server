@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postfix-config
+data:
+  main.cf: |
+    myhostname = mail.jablonowski.dev
+    mydomain = jablonowski.dev
+    myorigin = $mydomain
+    inet_interfaces = all
+    inet_protocols = ipv4
+    mydestination =
+    relayhost =
+    mynetworks = 127.0.0.0/8 10.0.0.0/8
+    smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destination
+
+    # TLS
+    smtpd_tls_security_level = may
+    smtp_tls_security_level = may
+    smtpd_tls_cert_file=/etc/ssl/certs/tls.crt
+    smtpd_tls_key_file=/etc/ssl/private/tls.key
+
+    # DKIM via OpenDKIM
+    milter_default_action = accept
+    milter_protocol = 6
+    smtpd_milters = inet:localhost:8891
+    non_smtpd_milters = inet:localhost:8891
+
+  master.cf: |
+    smtp      inet  n       -       n       -       -       smtpd

@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postfix
+  labels:
+    app: postfix
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postfix
+  template:
+    metadata:
+      labels:
+        app: postfix
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: your-mail-node # pin to one OTC node
+      containers:
+        - name: postfix
+          image: boky/postfix:latest
+          ports:
+            - containerPort: 25
+              name: smtp
+          volumeMounts:
+            - name: postfix-config
+              mountPath: /etc/postfix
+            - name: mail-queue
+              mountPath: /var/spool/postfix
+            - name: tls-certs
+              mountPath: /etc/ssl
+        - name: opendkim
+          image: instrumentisto/opendkim
+          args: ["-f"]
+          volumeMounts:
+            - name: opendkim-config
+              mountPath: /etc/opendkim
+            - name: opendkim-key
+              mountPath: /etc/opendkim/keys/
+              readOnly: true
+      volumes:
+        - name: postfix-config
+          configMap:
+            name: postfix-config
+        - name: opendkim-config
+          configMap:
+            name: opendkim-config
+        - name: mail-queue
+          persistentVolumeClaim:
+            claimName: postfix-pvc
+        - name: tls-certs
+          secret:
+            secretName: mail-sni-tls
+        - name: opendkim-key
+          secret:
+            secretName: opendkim-key
