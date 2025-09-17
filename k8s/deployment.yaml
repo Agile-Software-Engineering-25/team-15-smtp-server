@@ -29,6 +29,11 @@ spec:
               mountPath: /var/spool/postfix
             - name: tls-certs
               mountPath: /etc/ssl
+          readinessProbe:
+            tcpSocket:
+              port: 25
+            initialDelaySeconds: 10
+            periodSeconds: 5
         - name: opendkim
           image: instrumentisto/opendkim
           args: ["-f"]
@@ -38,6 +43,11 @@ spec:
             - name: opendkim-key
               mountPath: /etc/opendkim/keys/
               readOnly: true
+          readinessProbe:
+            tcpSocket:
+              port: 8891
+            initialDelaySeconds: 10
+            periodSeconds: 5
       volumes:
         - name: postfix-config
           configMap:
