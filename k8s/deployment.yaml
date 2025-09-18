@@ -31,7 +31,7 @@ spec:
               mountPath: /etc/ssl
           readinessProbe:
             tcpSocket:
-              port: 25
+              port: 587
             initialDelaySeconds: 10
             periodSeconds: 5
         - name: opendkim
