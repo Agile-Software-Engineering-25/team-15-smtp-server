@@ -19,7 +19,7 @@ spec:
           env:
             # identity & networks
             - name: HOSTNAME
-              value: smtp-relay.mail-relay.svc.cluster.local
+              value: smtp-relay.ase-15.svc.cluster.local
             - name: POSTFIX_mynetworks
               value: "10.42.0.0/16, 10.43.0.0/16, 127.0.0.0/8"
 
