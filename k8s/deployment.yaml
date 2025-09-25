@@ -26,10 +26,10 @@ spec:
             # relay to Gmail with AUTH
             - name: RELAYHOST
               value: "[smtp.gmail.com]:587"
-            - name: SMTP_USERNAME
-              valueFrom: { secretKeyRef: { name: gmail-sasl, key: SMTP_USERNAME } }
-            - name: SMTP_PASSWORD
-              valueFrom: { secretKeyRef: { name: gmail-sasl, key: SMTP_PASSWORD } }
+            - name: RELAYHOST_USERNAME
+              valueFrom: { secretKeyRef: { name: gmail-sasl, key: RELAYHOST_USERNAME } }
+            - name: RELAYHOST_PASSWORD
+              valueFrom: { secretKeyRef: { name: gmail-sasl, key: RELAYHOST_PASSWORD } }
 
             - name: ALLOWED_SENDER_DOMAINS
               value: "gmail.com"
