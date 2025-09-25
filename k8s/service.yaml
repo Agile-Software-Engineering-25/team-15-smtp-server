@@ -1,14 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: postfix
-  labels:
-    app: postfix
+  name: smtp-relay
 spec:
   selector:
-    app: postfix
+    app: smtp-relay
   ports:
-    - protocol: TCP
+    - name: smtp
       port: 25
-      targetPort: smtp
-  type: ClusterIP # change to LoadBalancer if you need external access
+      targetPort: 25
+      protocol: TCP

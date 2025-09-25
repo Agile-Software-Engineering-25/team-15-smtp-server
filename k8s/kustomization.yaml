@@ -4,6 +4,6 @@ kind: Kustomization
 resources:
   - deployment.yaml
   - service.yaml
-  - configmap-postfix.yaml
-  - configmap-opendkim.yaml
-  - pvc.yaml
+  - configmap-generic.yaml
+  - configmap-postfix-maincf.yaml
+  - network-policy.yaml

@@ -1,66 +1,73 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: postfix
-  labels:
-    app: postfix
+  name: smtp-relay
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: postfix
+      app: smtp-relay
   template:
     metadata:
       labels:
-        app: postfix
+        app: smtp-relay
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: ecs-2fa2
+      securityContext:
+        fsGroup: 0
+      volumes:
+        - name: etc-postfix
+          emptyDir: {}
+        - name: cm-main
+          configMap:
+            name: postfix-maincf
+        - name: cm-generic
+          configMap:
+            name: postfix-generic
+        - name: secret-sasl
+          secret:
+            secretName: postfix-sasl
+      initContainers:
+        - name: setup-postfix
+          image: debian:stable-slim
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              apt-get update && apt-get install -y --no-install-recommends postfix ca-certificates && rm -rf /var/lib/apt/lists/*
+              cp /cm/main.cf /etc/postfix/main.cf
+              cp /cmg/generic /etc/postfix/generic
+              cp /secret/sasl_passwd /etc/postfix/sasl_passwd
+              postmap /etc/postfix/sasl_passwd
+              postmap /etc/postfix/generic
+              chmod 600 /etc/postfix/sasl_passwd /etc/postfix/sasl_passwd.db /etc/postfix/generic /etc/postfix/generic.db
+              cp -a /etc/postfix/* /out/
+          volumeMounts:
+            - name: etc-postfix
+              mountPath: /out
+            - name: cm-main
+              mountPath: /cm
+            - name: cm-generic
+              mountPath: /cmg
+            - name: secret-sasl
+              mountPath: /secret
       containers:
         - name: postfix
-          image: boky/postfix:latest
+          image: instrumentisto/postfix:3.9
+          args: ["start-fg"]
           ports:
-            - containerPort: 25
-              name: smtp
+            - name: smtp
+              containerPort: 25
           volumeMounts:
-            - name: postfix-config
+            - name: etc-postfix
               mountPath: /etc/postfix
-            - name: mail-queue
-              mountPath: /var/spool/postfix
-            - name: tls-certs
-              mountPath: /etc/ssl
           readinessProbe:
             tcpSocket:
-              port: 587
-            initialDelaySeconds: 10
+              port: 25
+            initialDelaySeconds: 3
             periodSeconds: 5
-        - name: opendkim
-          image: instrumentisto/opendkim
-          args: ["-f"]
-          volumeMounts:
-            - name: opendkim-config
-              mountPath: /etc/opendkim
-            - name: opendkim-key
-              mountPath: /etc/opendkim/keys/
-              readOnly: true
-          readinessProbe:
+          livenessProbe:
             tcpSocket:
-              port: 8891
+              port: 25
             initialDelaySeconds: 10
-            periodSeconds: 5
-      volumes:
-        - name: postfix-config
-          configMap:
-            name: postfix-config
-        - name: opendkim-config
-          configMap:
-            name: opendkim-config
-        - name: mail-queue
-          persistentVolumeClaim:
-            claimName: postfix-pvc
-        - name: tls-certs
-          secret:
-            secretName: mail-sni-tls
-        - name: opendkim-key
-          secret:
-            secretName: opendkim-key
+            periodSeconds: 10
