@@ -5,12 +5,10 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels:
-      app: smtp-relay
+    matchLabels: { app: smtp-relay }
   template:
     metadata:
-      labels:
-        app: smtp-relay
+      labels: { app: smtp-relay }
     spec:
       containers:
         - name: postfix
@@ -19,25 +17,32 @@ spec:
             - name: smtp
               containerPort: 25
           env:
-            # Basic identity
+            # identity & networks
             - name: HOSTNAME
               value: smtp-relay.mail-relay.svc.cluster.local
+            - name: POSTFIX_mynetworks
+              value: "10.42.0.0/16, 10.43.0.0/16, 127.0.0.0/8"
 
-            # Upstream Gmail smarthost
+            # relay to Gmail with AUTH
             - name: RELAYHOST
               value: "[smtp.gmail.com]:587"
-
-            # SASL to Gmail (from secret)
             - name: SMTP_USERNAME
               valueFrom: { secretKeyRef: { name: gmail-sasl, key: SMTP_USERNAME } }
             - name: SMTP_PASSWORD
               valueFrom: { secretKeyRef: { name: gmail-sasl, key: SMTP_PASSWORD } }
 
-            # Limit who can use the relay (your k3s Pod/Service CIDRs)
-            - name: POSTFIX_mynetworks
-              value: "10.42.0.0/16, 10.43.0.0/16, 127.0.0.0/8"
+            - name: ALLOWED_SENDER_DOMAINS
+              value: "gmail.com"
 
-            # TLS + SASL settings (image maps POSTFIX_* to main.cf keys)
+            # null-client behavior + TLS/SASL knobs
+            - name: POSTFIX_myorigin
+              value: "$myhostname"
+            - name: POSTFIX_mydestination
+              value: ""
+            - name: POSTFIX_local_transport
+              value: "error:local delivery disabled"
+            - name: POSTFIX_relay_domains
+              value: "*"
             - name: POSTFIX_smtp_use_tls
               value: "yes"
             - name: POSTFIX_smtp_tls_security_level
@@ -49,17 +54,7 @@ spec:
             - name: POSTFIX_smtp_sasl_tls_security_options
               value: "noanonymous"
 
-            # Don’t be a final destination; behave as null-client
-            - name: POSTFIX_myorigin
-              value: "$myhostname"
-            - name: POSTFIX_mydestination
-              value: ""
-            - name: POSTFIX_local_transport
-              value: "error:local delivery disabled"
-            - name: POSTFIX_relay_domains
-              value: "*"
-
-            # Rewrite envelope sender so Gmail accepts it
+            # rewrite envelope sender to your Gmail to keep Gmail happy :)
             - name: POSTFIX_smtp_generic_maps
               value: "regexp:/etc/postfix/generic"
           volumeMounts:
