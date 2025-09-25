@@ -12,62 +12,61 @@ spec:
       labels:
         app: smtp-relay
     spec:
-      securityContext:
-        fsGroup: 0
-      volumes:
-        - name: etc-postfix
-          emptyDir: {}
-        - name: cm-main
-          configMap:
-            name: postfix-maincf
-        - name: cm-generic
-          configMap:
-            name: postfix-generic
-        - name: secret-sasl
-          secret:
-            secretName: postfix-sasl
-      initContainers:
-        - name: setup-postfix
-          image: debian:stable-slim
-          command:
-            - /bin/sh
-            - -c
-            - |
-              set -e
-              apt-get update && apt-get install -y --no-install-recommends postfix ca-certificates && rm -rf /var/lib/apt/lists/*
-              cp /cm/main.cf /etc/postfix/main.cf
-              cp /cmg/generic /etc/postfix/generic
-              cp /secret/sasl_passwd /etc/postfix/sasl_passwd
-              postmap /etc/postfix/sasl_passwd
-              postmap /etc/postfix/generic
-              chmod 600 /etc/postfix/sasl_passwd /etc/postfix/sasl_passwd.db /etc/postfix/generic /etc/postfix/generic.db
-              cp -a /etc/postfix/* /out/
-          volumeMounts:
-            - name: etc-postfix
-              mountPath: /out
-            - name: cm-main
-              mountPath: /cm
-            - name: cm-generic
-              mountPath: /cmg
-            - name: secret-sasl
-              mountPath: /secret
       containers:
         - name: postfix
-          image: instrumentisto/postfix:3.9
-          args: ["start-fg"]
+          image: boky/postfix:latest
           ports:
             - name: smtp
               containerPort: 25
+          env:
+            # Basic identity
+            - name: HOSTNAME
+              value: smtp-relay.mail-relay.svc.cluster.local
+
+            # Upstream Gmail smarthost
+            - name: RELAYHOST
+              value: "[smtp.gmail.com]:587"
+
+            # SASL to Gmail (from secret)
+            - name: SMTP_USERNAME
+              valueFrom: { secretKeyRef: { name: gmail-sasl, key: SMTP_USERNAME } }
+            - name: SMTP_PASSWORD
+              valueFrom: { secretKeyRef: { name: gmail-sasl, key: SMTP_PASSWORD } }
+
+            # Limit who can use the relay (your k3s Pod/Service CIDRs)
+            - name: POSTFIX_mynetworks
+              value: "10.42.0.0/16, 10.43.0.0/16, 127.0.0.0/8"
+
+            # TLS + SASL settings (image maps POSTFIX_* to main.cf keys)
+            - name: POSTFIX_smtp_use_tls
+              value: "yes"
+            - name: POSTFIX_smtp_tls_security_level
+              value: "encrypt"
+            - name: POSTFIX_smtp_sasl_auth_enable
+              value: "yes"
+            - name: POSTFIX_smtp_sasl_security_options
+              value: "noanonymous"
+            - name: POSTFIX_smtp_sasl_tls_security_options
+              value: "noanonymous"
+
+            # Don’t be a final destination; behave as null-client
+            - name: POSTFIX_myorigin
+              value: "$myhostname"
+            - name: POSTFIX_mydestination
+              value: ""
+            - name: POSTFIX_local_transport
+              value: "error:local delivery disabled"
+            - name: POSTFIX_relay_domains
+              value: "*"
+
+            # Rewrite envelope sender so Gmail accepts it
+            - name: POSTFIX_smtp_generic_maps
+              value: "regexp:/etc/postfix/generic"
           volumeMounts:
-            - name: etc-postfix
-              mountPath: /etc/postfix
-          readinessProbe:
-            tcpSocket:
-              port: 25
-            initialDelaySeconds: 3
-            periodSeconds: 5
-          livenessProbe:
-            tcpSocket:
-              port: 25
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            - name: generic
+              mountPath: /etc/postfix/generic
+              subPath: generic
+      volumes:
+        - name: generic
+          configMap:
+            name: postfix-generic
