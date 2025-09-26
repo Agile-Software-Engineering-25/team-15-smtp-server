@@ -31,6 +31,8 @@ spec:
             - name: RELAYHOST_PASSWORD
               valueFrom: { secretKeyRef: { name: gmail-sasl, key: RELAYHOST_PASSWORD } }
 
+            - name: ALLOW_EMPTY_SENDER_DOMAINS
+              value: "true"
             - name: POSTFIX_smtpd_relay_restrictions
               value: "permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination"
             - name: POSTFIX_smtpd_recipient_restrictions
