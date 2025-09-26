@@ -12,9 +12,9 @@ spec:
     spec:
       containers:
         - name: app
-          image: python:3.11-slim
+          image: Agile-Software-Engineering-25/py-smtp-relay:latest
           ports:
-            - containerPort: 25
+            - containerPort: 2525
           env:
             - name: GMAIL_USER
               valueFrom: { secretKeyRef: { name: gmail-sasl, key: RELAYHOST_USERNAME } }
@@ -27,21 +27,11 @@ spec:
             - name: LISTEN_HOST
               value: "0.0.0.0"
             - name: LISTEN_PORT
-              value: "25"
+              value: "2525"
             - name: OVERRIDE_HEADER_FROM
               value: "true"   # set "false" to keep original From:
             - name: MAX_SIZE
               value: "20971520" # 20 MB
-          securityContext:
-            allowPrivilegeEscalation: false
-            runAsUser: 0        # needs root to bind :25 (or switch to port 2525)
-          volumeMounts:
-            - name: code
-              mountPath: /app
-          workingDir: /app
-          command: ["/bin/sh","-c"]
-          args:
-            - python /app/app.py
           readinessProbe:
             tcpSocket: { port: 25 }
             initialDelaySeconds: 5
@@ -50,7 +40,3 @@ spec:
             tcpSocket: { port: 25 }
             initialDelaySeconds: 10
             periodSeconds: 20
-      volumes:
-        - name: code
-          configMap:
-            name: py-smtp-relay

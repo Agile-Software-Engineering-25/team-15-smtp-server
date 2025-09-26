@@ -3,9 +3,7 @@ kind: NetworkPolicy
 metadata:
   name: py-smtp-egress
 spec:
-  podSelector:
-    matchLabels:
-      app: py-smtp-relay
+  podSelector: { matchLabels: { app: py-smtp-relay } }
   policyTypes: ["Egress"]
   egress:
     - to:
@@ -19,7 +17,6 @@ spec:
         - { protocol: UDP, port: 53 }
         - { protocol: TCP, port: 53 }
     - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
+        - ipBlock: { cidr: 0.0.0.0/0 }
       ports:
         - { protocol: TCP, port: 587 }

@@ -13,7 +13,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
+      - name: Build and push image
+        uses: Agile-Software-Engineering-25/build-and-publish-image@v1
+        with:
+          image_name: "py-smtp-relay"
+          push: true
+          extra_tags: latest,${{ github.sha }}
       - name: Deploy to k8s
         uses: Agile-Software-Engineering-25/deploy-to-k8s@v1
         with:
