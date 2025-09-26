@@ -61,7 +61,14 @@ spec:
             - name: generic
               mountPath: /etc/postfix/generic
               subPath: generic
+            - name: postfix-init
+              mountPath: /docker-init.db
+              readOnly: true
       volumes:
         - name: generic
           configMap:
             name: postfix-generic
+        - name: postfix-init
+          configMap:
+            name: postfix-init
+            defaultMode: 0755
