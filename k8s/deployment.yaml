@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: smtp-relay
+  namespace: ase-15
 spec:
   replicas: 1
   selector:
@@ -17,17 +18,19 @@ spec:
             - name: smtp
               containerPort: 25
           env:
-            # --- Identity / HELO (public-ish FQDN keeps headers clean)
+            # --- Identity / HELO
             - name: HOSTNAME
               value: smtp-relay.ase-15.svc.cluster.local
             - name: POSTFIX_myhostname
-              value: sau-portal.de
+              value: relay.sau-portal.de
             - name: POSTFIX_smtp_helo_name
-              value: sau-portal.de
+              value: relay.sau-portal.de
 
-            # --- Allow senders in-cluster
+            # --- Networking
+            - name: POSTFIX_inet_protocols
+              value: "ipv4"                               # <-- avoids ::1 issues
             - name: POSTFIX_mynetworks
-              value: "10.42.0.0/16, 10.43.0.0/16, 127.0.0.0/8, [::1]/128"
+              value: "10.42.0.0/16, 10.43.0.0/16, 127.0.0.0/8"
 
             # --- Relay to Gmail with AUTH
             - name: RELAYHOST
@@ -43,15 +46,15 @@ spec:
                   name: gmail-sasl
                   key: RELAYHOST_PASSWORD
 
-            # --- Route logs to stdout (handy in K8s)
+            # --- Logs to stdout
             - name: POSTFIX_maillog_file
               value: "/dev/stdout"
 
-            # --- Alias local root to Gmail (DSNs, cron)
+            # --- Alias local root (DSNs, cron)
             - name: ALIASES
               value: "root: sau.portal.noreply@gmail.com"
 
-            # --- SMTP auth/TLS knobs
+            # --- SMTP auth/TLS
             - name: POSTFIX_smtp_use_tls
               value: "yes"
             - name: POSTFIX_smtp_tls_security_level
@@ -63,7 +66,7 @@ spec:
             - name: POSTFIX_smtp_sasl_tls_security_options
               value: "noanonymous"
 
-            # --- Null-client behavior (no local delivery)
+            # --- Null-client (no local delivery)
             - name: POSTFIX_myorigin
               value: "$myhostname"
             - name: POSTFIX_mydestination
@@ -73,21 +76,19 @@ spec:
             - name: POSTFIX_relay_domains
               value: "*"
 
-            # --- Ingress policy inside Postfix
+            # --- Ingress policy in Postfix
             - name: POSTFIX_smtpd_relay_restrictions
               value: "permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination"
             - name: POSTFIX_smtpd_recipient_restrictions
               value: "reject_non_fqdn_recipient, reject_unknown_recipient_domain, check_recipient_access regexp:/etc/postfix/recipient_access, permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination"
 
-            # --- Rewrite envelope sender on SMTP handoff
+            # --- Rewrites
             - name: POSTFIX_smtp_generic_maps
-              value: "regexp:/etc/postfix/generic"
-
-            # --- Rewrite ALL local senders pre-queue (DSNs, cron, root)
+              value: "regexp:/etc/postfix/generic"        # envelope sender -> Gmail
             - name: POSTFIX_sender_canonical_maps
-              value: "regexp:/etc/postfix/sender_canonical"
+              value: "regexp:/etc/postfix/sender_canonical" # ALL local senders -> Gmail
 
-            # --- Optional: allow empty sender domains (kept from your config)
+            # --- (keep if you need it)
             - name: ALLOW_EMPTY_SENDER_DOMAINS
               value: "true"
 
