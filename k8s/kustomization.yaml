@@ -6,3 +6,4 @@ resources:
   - service.yaml
   - configmap-generic.yaml
   - network-policy.yaml
+  - configmap-postfix-init.yaml
