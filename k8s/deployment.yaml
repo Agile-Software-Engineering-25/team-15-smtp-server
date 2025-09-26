@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghcr.io/agile-software-engineering-25/py-smtp-relay:latest
+          image: ghcr.io/agile-software-engineering-25/py-smtp-relay:${{ github.sha }}
           imagePullPolicy: Always
           ports:
             - containerPort: 2525
