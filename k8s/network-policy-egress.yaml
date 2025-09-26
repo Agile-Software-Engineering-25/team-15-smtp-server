@@ -1,11 +1,11 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: smtp-relay-egress
+  name: py-smtp-egress
 spec:
   podSelector:
     matchLabels:
-      app: smtp-relay
+      app: py-smtp-relay
   policyTypes: ["Egress"]
   egress:
     - to:
@@ -16,13 +16,10 @@ spec:
             matchLabels:
               k8s-app: kube-dns
       ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
       ports:
-        - protocol: TCP
-          port: 587
+        - { protocol: TCP, port: 587 }

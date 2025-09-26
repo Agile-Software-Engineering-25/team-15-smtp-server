@@ -1,121 +1,57 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: smtp-relay
+  name: py-smtp-relay
   namespace: ase-15
 spec:
   replicas: 1
   selector:
-    matchLabels: { app: smtp-relay }
+    matchLabels: { app: py-smtp-relay }
   template:
     metadata:
-      labels: { app: smtp-relay }
+      labels: { app: py-smtp-relay }
     spec:
       containers:
-        - name: postfix
-          image: boky/postfix:latest
+        - name: app
+          image: python:3.11-slim
           ports:
-            - name: smtp
-              containerPort: 25
+            - containerPort: 25
           env:
-            # --- Identity / HELO
-            - name: HOSTNAME
-              value: smtp-relay.ase-15.svc.cluster.local
-            - name: POSTFIX_myhostname
-              value: relay.sau-portal.de
-            - name: POSTFIX_smtp_helo_name
-              value: relay.sau-portal.de
-
-            # --- Networking
-            - name: POSTFIX_inet_protocols
-              value: "ipv4"                               # <-- avoids ::1 issues
-            - name: POSTFIX_mynetworks
-              value: "10.42.0.0/16, 10.43.0.0/16, 127.0.0.0/8"
-
-            # --- Relay to Gmail with AUTH
-            - name: RELAYHOST
-              value: "[smtp.gmail.com]:587"
-            - name: RELAYHOST_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: gmail-sasl
-                  key: RELAYHOST_USERNAME
-            - name: RELAYHOST_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: gmail-sasl
-                  key: RELAYHOST_PASSWORD
-
-            # --- Logs to stdout
-            - name: POSTFIX_maillog_file
-              value: "/dev/stdout"
-
-            # --- Alias local root (DSNs, cron)
-            - name: ALIASES
-              value: "root: sau.portal.noreply@gmail.com"
-
-            # --- SMTP auth/TLS
-            - name: POSTFIX_smtp_use_tls
-              value: "yes"
-            - name: POSTFIX_smtp_tls_security_level
-              value: "encrypt"
-            - name: POSTFIX_smtp_sasl_auth_enable
-              value: "yes"
-            - name: POSTFIX_smtp_sasl_security_options
-              value: "noanonymous"
-            - name: POSTFIX_smtp_sasl_tls_security_options
-              value: "noanonymous"
-
-            # --- Null-client (no local delivery)
-            - name: POSTFIX_myorigin
-              value: "$myhostname"
-            - name: POSTFIX_mydestination
-              value: ""
-            - name: POSTFIX_local_transport
-              value: "error:local delivery disabled"
-            - name: POSTFIX_relay_domains
-              value: "*"
-
-            # --- Ingress policy in Postfix
-            - name: POSTFIX_smtpd_relay_restrictions
-              value: "permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination"
-            - name: POSTFIX_smtpd_recipient_restrictions
-              value: "reject_non_fqdn_recipient, reject_unknown_recipient_domain, check_recipient_access regexp:/etc/postfix/recipient_access, permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination"
-
-            # --- Rewrites
-            - name: POSTFIX_smtp_generic_maps
-              value: "regexp:/etc/postfix/generic"        # envelope sender -> Gmail
-            - name: POSTFIX_sender_canonical_maps
-              value: "regexp:/etc/postfix/sender_canonical" # ALL local senders -> Gmail
-
-            # --- (keep if you need it)
-            - name: ALLOW_EMPTY_SENDER_DOMAINS
-              value: "true"
-
+            - name: GMAIL_USER
+              valueFrom: { secretKeyRef: { name: gmail-sasl, key: RELAYHOST_USERNAME } }
+            - name: GMAIL_APP_PASSWORD
+              valueFrom: { secretKeyRef: { name: gmail-sasl, key: RELAYHOST_PASSWORD } }
+            - name: FROM_NAME
+              value: "SAU Portal"
+            - name: ALLOW_NETS
+              value: "10.42.0.0/16,10.43.0.0/16,127.0.0.0/8,::1/128"
+            - name: LISTEN_HOST
+              value: "0.0.0.0"
+            - name: LISTEN_PORT
+              value: "25"
+            - name: OVERRIDE_HEADER_FROM
+              value: "true"   # set "false" to keep original From:
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsUser: 0        # needs root to bind :25 (or switch to port 2525)
           volumeMounts:
-            - name: generic
-              mountPath: /etc/postfix/generic
-              subPath: generic
-            - name: sender-canonical
-              mountPath: /etc/postfix/sender_canonical
-              subPath: sender_canonical
-            - name: recipient-access
-              mountPath: /etc/postfix/recipient_access
-              subPath: recipient_access
-            - name: postfix-init
-              mountPath: /docker-init.db
-              readOnly: true
+            - name: code
+              mountPath: /app
+          workingDir: /app
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              pip install --no-cache-dir -r requirements.txt && \
+              python /app/app.py
+          readinessProbe:
+            tcpSocket: { port: 25 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: 25 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
       volumes:
-        - name: generic
+        - name: code
           configMap:
-            name: postfix-generic
-        - name: sender-canonical
-          configMap:
-            name: postfix-sender-canonical
-        - name: recipient-access
-          configMap:
-            name: postfix-recipient-access
-        - name: postfix-init
-          configMap:
-            name: postfix-init
-            defaultMode: 0755
+            name: py-smtp-relay

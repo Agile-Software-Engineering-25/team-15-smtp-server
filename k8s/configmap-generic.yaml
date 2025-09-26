@@ -1,7 +1,106 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: postfix-generic
+  name: py-smtp-relay
+  namespace: ase-15
 data:
-  generic: |
-    /^.*$/ sau.portal.noreply@gmail.com
+  requirements.txt: |
+    aiosmtpd==1.4.6
+  app.py: |
+    import os, ipaddress, smtplib, logging
+    from email import policy
+    from email.parser import BytesParser
+    from email.message import EmailMessage
+    from email.utils import formatdate, make_msgid
+
+    from aiosmtpd.controller import Controller
+    from aiosmtpd.smtp import SMTP as SMTPServer, Session, Envelope
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    log = logging.getLogger("smtp-relay")
+
+    GMAIL_USER = os.environ["GMAIL_USER"]
+    GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
+    FROM_NAME = os.environ.get("FROM_NAME", "SAU Portal")
+    ALLOW_NETS = [x.strip() for x in os.environ.get("ALLOW_NETS","10.42.0.0/16,10.43.0.0/16,127.0.0.0/8,::1/128").split(",") if x.strip()]
+    OVERRIDE_HEADER_FROM = os.environ.get("OVERRIDE_HEADER_FROM","true").lower() == "true"
+    LISTEN_HOST = os.environ.get("LISTEN_HOST","0.0.0.0")
+    LISTEN_PORT = int(os.environ.get("LISTEN_PORT","25"))
+    SMTP_OUT_HOST = os.environ.get("SMTP_OUT_HOST","smtp.gmail.com")
+    SMTP_OUT_PORT = int(os.environ.get("SMTP_OUT_PORT","587"))
+    MAX_SIZE = int(os.environ.get("MAX_SIZE","20971520"))  # 20 MB
+
+    allow_nets = [ipaddress.ip_network(n, strict=False) for n in ALLOW_NETS]
+
+    def allowed_peer(peer_host:str)->bool:
+        try:
+            ip = ipaddress.ip_address(peer_host)
+        except ValueError:
+            return False
+        return any(ip in net for net in allow_nets)
+
+    class RelayHandler:
+        async def handle_MAIL(self, server: SMTPServer, session: Session, envelope: Envelope, address, mail_options):
+            # Size guard (if SIZE= was advertised)
+            size_opts = [o for o in mail_options if o.upper().startswith("SIZE=")]
+            if size_opts:
+                try:
+                    sz = int(size_opts[0].split("=",1)[1])
+                    if sz > MAX_SIZE:
+                        return "552 Message size exceeds fixed maximum message size"
+                except Exception:
+                    pass
+            envelope.mail_from = address
+            return "250 OK"
+
+        async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
+            envelope.rcpt_tos.append(address)
+            return "250 OK"
+
+        async def handle_DATA(self, server, session: Session, envelope: Envelope):
+            peer_ip = session.peer[0]
+            if not allowed_peer(peer_ip):
+                log.warning("Rejecting peer %s (not in allow list)", peer_ip)
+                return "554 5.7.1 Relay access denied"
+
+            try:
+                msg = BytesParser(policy=policy.SMTP).parsebytes(envelope.content)
+                # Ensure Date/Message-ID
+                if "Date" not in msg:
+                    msg["Date"] = formatdate(localtime=True)
+                if "Message-Id" not in msg and "Message-ID" not in msg:
+                    msg["Message-Id"] = make_msgid(domain="gmail.com")
+
+                # Optionally normalize header From to Gmail
+                if OVERRIDE_HEADER_FROM:
+                    msg.replace_header("From", f"{FROM_NAME} <{GMAIL_USER}>") if "From" in msg else msg.__setitem__("From", f"{FROM_NAME} <{GMAIL_USER}>")
+
+                # Envelope sender = Gmail (DMARC alignment)
+                envelope_from = GMAIL_USER
+                rcpts = envelope.rcpt_tos
+
+                # Send via Gmail
+                with smtplib.SMTP(SMTP_OUT_HOST, SMTP_OUT_PORT, timeout=30) as s:
+                    s.starttls()
+                    s.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+                    s.sendmail(envelope_from, rcpts, msg.as_bytes())
+
+                log.info("Relayed: from=%s to=%s msgid=%s", msg.get("From"), rcpts, msg.get("Message-Id"))
+                return "250 2.0.0 OK"
+
+            except smtplib.SMTPException as e:
+                log.error("SMTP to Gmail failed: %s", e)
+                return "451 4.3.0 Upstream SMTP error"
+            except Exception as e:
+                log.exception("Unhandled error: %s", e)
+                return "451 4.3.0 Internal error"
+
+    if __name__ == "__main__":
+        handler = RelayHandler()
+        ctrl = Controller(handler, hostname=LISTEN_HOST, port=LISTEN_PORT, auth_required=False, require_starttls=False)
+        # Advertise SIZE, 8BITMIME
+        ctrl.factory = lambda: SMTPServer(handler, data_size_limit=MAX_SIZE, decode_data=False, enable_SMTPUTF8=True)
+        ctrl.start()
+        log.info("Python SMTP relay listening on %s:%s, allowed nets: %s", LISTEN_HOST, LISTEN_PORT, ALLOW_NETS)
+        import signal, time
+        signal.pause()
