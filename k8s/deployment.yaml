@@ -27,7 +27,7 @@ spec:
 
             # --- Allow senders in-cluster
             - name: POSTFIX_mynetworks
-              value: "10.42.0.0/16, 10.43.0.0/16, 127.0.0.0/8"
+              value: "10.42.0.0/16, 10.43.0.0/16, 127.0.0.0/8, [::1]/128"
 
             # --- Relay to Gmail with AUTH
             - name: RELAYHOST
