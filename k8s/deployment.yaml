@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: Agile-Software-Engineering-25/py-smtp-relay:latest
+          image: ghrc.io/agile-software-engineering-25/py-smtp-relay:latest
           ports:
             - containerPort: 2525
           env:
