@@ -21,9 +21,9 @@ spec:
             - name: HOSTNAME
               value: smtp-relay.ase-15.svc.cluster.local
             - name: POSTFIX_myhostname
-              value: sau.portal.noreply@gmail.com
+              value: sau-portal.de
             - name: POSTFIX_smtp_helo_name
-              value: sau.portal.noreply@gmail.com
+              value: sau-portal.de
 
             # --- Allow senders in-cluster
             - name: POSTFIX_mynetworks
