@@ -13,6 +13,7 @@ spec:
       containers:
         - name: app
           image: ghrc.io/agile-software-engineering-25/py-smtp-relay:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 2525
           env:
