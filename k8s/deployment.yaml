@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: python:3.11-slim
+          image: python:3.10-slim
           ports:
             - containerPort: 25
           env:
