@@ -4,4 +4,4 @@ metadata:
   name: postfix-generic
 data:
   generic: |
-    /.*/ sau.portal.noreply@gmail.com
+    /^.*$/ sau.portal.noreply@gmail.com
