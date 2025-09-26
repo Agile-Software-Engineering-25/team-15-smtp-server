@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: py-smtp-relay
-  namespace: ase-15
 spec:
   replicas: 1
   selector:
@@ -13,7 +12,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: python:3.10-slim
+          image: python:3.11-slim
           ports:
             - containerPort: 25
           env:
@@ -31,6 +30,8 @@ spec:
               value: "25"
             - name: OVERRIDE_HEADER_FROM
               value: "true"   # set "false" to keep original From:
+            - name: MAX_SIZE
+              value: "20971520" # 20 MB
           securityContext:
             allowPrivilegeEscalation: false
             runAsUser: 0        # needs root to bind :25 (or switch to port 2525)
@@ -40,9 +41,7 @@ spec:
           workingDir: /app
           command: ["/bin/sh","-c"]
           args:
-            - |
-              pip install --no-cache-dir -r requirements.txt && \
-              python /app/app.py
+            - python /app/app.py
           readinessProbe:
             tcpSocket: { port: 25 }
             initialDelaySeconds: 5
