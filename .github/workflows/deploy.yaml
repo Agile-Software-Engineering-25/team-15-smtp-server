@@ -18,7 +18,7 @@ jobs:
         with:
           image_name: "py-smtp-relay"
           push: true
-          extra_tags: latest,${{ github.sha }}
+          extra_tags: ${{ github.sha }}
       - name: Deploy to k8s
         uses: Agile-Software-Engineering-25/deploy-to-k8s@v1
         with:
