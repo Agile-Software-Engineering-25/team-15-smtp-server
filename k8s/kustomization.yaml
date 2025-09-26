@@ -7,3 +7,5 @@ resources:
   - configmap-generic.yaml
   - network-policy.yaml
   - configmap-postfix-init.yaml
+  - configmap-recipient-access.yaml
+  - configmap-sender-canonical.yaml
