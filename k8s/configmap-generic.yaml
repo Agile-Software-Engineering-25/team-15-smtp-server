@@ -5,7 +5,7 @@ metadata:
   namespace: ase-15
 data:
   requirements.txt: |
-    aiosmtpd==1.4.6
+    aiosmtpd
   app.py: |
     import os, ipaddress, smtplib, logging
     from email import policy
