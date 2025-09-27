@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: py-smtp-relay
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: py-smtp-relay }
+  template:
+    metadata:
+      labels: { app: py-smtp-relay }
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/agile-software-engineering-25/py-smtp-relay:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 2525
+          env:
+            - name: GMAIL_USER
+              valueFrom: { secretKeyRef: { name: gmail-sasl, key: RELAYHOST_USERNAME } }
+            - name: GMAIL_APP_PASSWORD
+              valueFrom: { secretKeyRef: { name: gmail-sasl, key: RELAYHOST_PASSWORD } }
+            - name: FROM_NAME
+              value: "SAU Portal"
+            - name: ALLOW_NETS
+              value: "10.42.0.0/16,10.43.0.0/16,127.0.0.0/8,::1/128"
+            - name: LISTEN_HOST
+              value: "0.0.0.0"
+            - name: LISTEN_PORT
+              value: "2525"
+            - name: OVERRIDE_HEADER_FROM
+              value: "true"   # set "false" to keep original From:
+            - name: MAX_SIZE
+              value: "20971520" # 20 MB
+          readinessProbe:
+            tcpSocket: { port: 2525 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: 2525 }
+            initialDelaySeconds: 10
+            periodSeconds: 20

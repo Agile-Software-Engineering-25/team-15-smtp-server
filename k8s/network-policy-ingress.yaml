@@ -1,0 +1,14 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-smtp-from-ns
+spec:
+  podSelector: { matchLabels: { app: py-smtp-relay } }
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              access-smtp-relay: "true"
+      ports:
+        - { protocol: TCP, port: 25 }

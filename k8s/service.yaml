@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: py-smtp-relay
+spec:
+  selector:
+    app: py-smtp-relay
+  ports:
+    - name: smtp
+      port: 25
+      targetPort: 2525
+      protocol: TCP
