@@ -34,10 +34,10 @@ spec:
             - name: MAX_SIZE
               value: "20971520" # 20 MB
           readinessProbe:
-            tcpSocket: { port: 25 }
+            tcpSocket: { port: 2525 }
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            tcpSocket: { port: 25 }
+            tcpSocket: { port: 2525 }
             initialDelaySeconds: 10
             periodSeconds: 20
